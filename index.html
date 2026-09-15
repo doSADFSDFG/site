@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MathSolve AI - 수학 문제 AI 풀이 플랫폼</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#1E293B',
+            secondary: '#2563EB',
+            tertiary: '#7C3AED',
+            success: '#059669',
+            surface: '#F8FAFC',
+            elevated: '#FFFFFF',
+            border: '#E2E8F0',
+          },
+          fontFamily: {
+            heading: ['Plus Jakarta Sans', 'sans-serif'],
+            body: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          borderRadius: {
+            'eight': '8px',
+          },
+          spacing: {
+            '2': '8px',
+            '4': '16px',
+            '6': '24px',
+            '8': '32px',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    * { font-family: 'Inter', sans-serif; }
+    h1, h2, h3, h4, h5, h6 { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .code-formula { font-family: 'JetBrains Mono', monospace; }
+    .glass-card {
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid #E2E8F0;
+    }
+    .upload-zone {
+      border: 2px dashed #CBD5E1;
+      transition: all 0.3s ease;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+      border-color: #2563EB;
+      background: rgba(37, 99, 235, 0.05);
+    }
+    .step-line::before {
+      content: '';
+      position: absolute;
+      left: 15px;
+      top: 32px;
+      bottom: -8px;
+      width: 2px;
+      background: #E2E8F0;
+    }
+    .step-line:last-child::before { display: none; }
+    .pulse-badge {
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .nav-active {
+      color: #2563EB;
+      border-bottom: 2px solid #2563EB;
+    }
+    .modal-overlay {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+    }
+    .fade-in {
+      animation: fadeIn 0.3s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .scanning-overlay {
+      background: linear-gradient(135deg, rgba(37,99,235,0.1), rgba(124,58,237,0.1));
+    }
+    @keyframes scanLine {
+      0% { top: 0; }
+      100% { top: 100%; }
+    }
+    .scan-line {
+      animation: scanLine 2s ease-in-out infinite;
+    }
+    .katex { font-size: 1.1em; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #F1F5F9; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-surface min-h-screen">
+  <!-- Header -->
+  <header class="bg-white border-b border-border sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              <path d="m9 9 6 6m0-6-6 6"/>
+            </svg>
+          </div>
+          <h1 class="text-xl font-heading font-bold text-primary">MathSolve AI</h1>
+        </div>
+        <nav class="hidden md:flex items-center gap-1">
+          <button onclick="showTab('home')" id="nav-home" class="nav-tab px-4 py-2 text-sm font-medium text-gray-600 hover:text-secondary nav-active rounded-lg">
+            <span class="material-symbols-outlined text-sm align-middle mr-1">home</span>홈
+          </button>
+          <button onclick="showTab('notebook')" id="nav-notebook" class="nav-tab px-4 py-2 text-sm font-medium text-gray-600 hover:text-secondary rounded-lg">
+            <span class="material-symbols-outlined text-sm align-middle mr-1">book</span>오답노트
+          </button>
+          <button onclick="showTab('concepts')" id="nav-concepts" class="nav-tab px-4 py-2 text-sm font-medium text-gray-600 hover:text-secondary rounded-lg">
+            <span class="material-symbols-outlined text-sm align-middle mr-1">school</span>개념사전
+          </button>
+          <button onclick="showTab('download')" id="nav-download" class="nav-tab px-4 py-2 text-sm font-medium text-gray-600 hover:text-secondary rounded-lg">
+            <span class="material-symbols-outlined text-sm align-middle mr-1">download</span>다운로드
+          </button>
+        </nav>
+        <div id="syncBadge" class="hidden md:flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-500 mr-1">
+          <span class="material-symbols-outlined text-sm">cloud_off</span>
+          <span>DB 미연결</span>
+        </div>
+        <button onclick="openSettings()" class="p-2 rounded-lg hover:bg-gray-100">
+          <span class="material-symbols-outlined text-gray-600">settings</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Nav -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-border z-50 px-2 py-1">
+    <div class="flex justify-around">
+      <button onclick="showTab('home')" id="mnav-home" class="mnav-tab flex flex-col items-center py-2 px-3 text-secondary">
+        <span class="material-symbols-outlined">home</span>
+        <span class="text-xs mt-1">홈</span>
+      </button>
+      <button onclick="showTab('notebook')" id="mnav-notebook" class="mnav-tab flex flex-col items-center py-2 px-3 text-gray-400">
+        <span class="material-symbols-outlined">book</span>
+        <span class="text-xs mt-1">오답노트</span>
+      </button>
+      <button onclick="showTab('concepts')" id="mnav-concepts" class="mnav-tab flex flex-col items-center py-2 px-3 text-gray-400">
+        <span class="material-symbols-outlined">school</span>
+        <span class="text-xs mt-1">개념사전</span>
+      </button>
+      <button onclick="showTab('download')" id="mnav-download" class="mnav-tab flex flex-col items-center py-2 px-3 text-gray-400">
+        <span class="material-symbols-outlined">download</span>
+        <span class="text-xs mt-1">다운로드</span>
+      </button>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-24 md:pb-8 pt-6">
+
+    <!-- ========== HOME TAB ========== -->
+    <div id="tab-home" class="tab-content">
+      <!-- Hero -->
+      <div class="bg-gradient-to-r from-primary to-slate-700 rounded-2xl p-8 md:p-12 text-white mb-8">
+        <div class="max-w-2xl">
+          <div class="inline-block bg-white/20 rounded-full px-4 py-1 text-sm font-medium mb-4 pulse-badge">
+            AI 정밀 연산 검증 완료
+          </div>
+          <h2 class="text-3xl md:text-4xl font-heading font-extrabold mb-4 leading-tight">
+            카메라로 찍거나 사진을 올리면<br>3초 만에 완벽 해설과 개념 정리까지!
+          </h2>
+          <div class="flex flex-wrap gap-4 mt-6">
+            <div class="flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2">
+              <span class="material-symbols-outlined text-green-300">verified</span>
+              <span class="text-sm">99.8% 수식 인식률</span>
+            </div>
+            <div class="flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2">
+              <span class="material-symbols-outlined text-yellow-300">timer</span>
+              <span class="text-sm">평균 2.4초 풀이</span>
+            </div>
+            <div class="flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2">
+              <span class="material-symbols-outlined text-blue-300">auto_awesome</span>
+              <span class="text-sm">AI 풀이 엔진 v4.2</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upload Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2">
+          <div class="bg-white rounded-2xl border border-border p-6">
+            <h3 class="text-lg font-heading font-bold text-primary mb-4 flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary">upload</span>
+              수학 문제 업로드
+            </h3>
+            
+            <div id="uploadZone" class="upload-zone rounded-xl p-12 text-center cursor-pointer relative" onclick="document.getElementById('fileInput').click()">
+              <input type="file" id="fileInput" accept="image/*,.pdf" class="hidden" onchange="handleFileUpload(event)">
+              <div id="uploadPlaceholder">
+                <span class="material-symbols-outlined text-5xl text-gray-300 mb-4">add_a_photo</span>
+                <p class="text-gray-500 font-medium mb-2">여기에 사진을 끌어다 놓거나 클릭하여 업로드</p>
+                <p class="text-sm text-gray-400">JPG, PNG, HEIC, PDF (최대 10MB)</p>
+              </div>
+              <div id="uploadPreview" class="hidden">
+                <img id="previewImage" class="max-h-64 mx-auto rounded-lg shadow-md" alt="미리보기">
+                <button onclick="event.stopPropagation(); clearUpload()" class="mt-4 text-sm text-red-500 hover:text-red-700 flex items-center gap-1 mx-auto">
+                  <span class="material-symbols-outlined text-sm">close</span>지우고 다시 업로드
+                </button>
+              </div>
+              <!-- Scanning Overlay -->
+              <div id="scanningOverlay" class="hidden absolute inset-0 scanning-overlay rounded-xl flex items-center justify-center">
+                <div class="text-center">
+                  <div class="relative w-16 h-16 mx-auto mb-4">
+                    <div class="absolute inset-0 border-4 border-secondary/30 rounded-full"></div>
+                    <div class="absolute inset-0 border-4 border-secondary border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                  <p class="text-secondary font-medium">AI가 문제를 분석하고 있습니다...</p>
+                  <p class="text-sm text-gray-500 mt-1">수식 추출 중</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Options -->
+            <div class="mt-6 flex flex-wrap gap-3">
+              <label class="flex items-center gap-2 bg-surface rounded-lg px-4 py-2 cursor-pointer hover:bg-gray-100 transition">
+                <input type="checkbox" id="optStepByStep" checked class="w-4 h-4 text-secondary rounded">
+                <span class="text-sm text-gray-700">단계별 상세 풀이</span>
+              </label>
+              <label class="flex items-center gap-2 bg-surface rounded-lg px-4 py-2 cursor-pointer hover:bg-gray-100 transition">
+                <input type="checkbox" id="optFormulas" checked class="w-4 h-4 text-secondary rounded">
+                <span class="text-sm text-gray-700">핵심 공식</span>
+              </label>
+              <label class="flex items-center gap-2 bg-surface rounded-lg px-4 py-2 cursor-pointer hover:bg-gray-100 transition">
+                <input type="checkbox" id="optConcepts" checked class="w-4 h-4 text-secondary rounded">
+                <span class="text-sm text-gray-700">관련 개념 정리</span>
+              </label>
+            </div>
+
+            <button id="solveBtn" onclick="solveProblem()" disabled class="mt-6 w-full bg-secondary hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition flex items-center justify-center gap-2">
+              <span class="material-symbols-outlined">psychology</span>
+              AI 풀이 시작
+            </button>
+          </div>
+        </div>
+
+        <!-- Recent Solves -->
+        <div class="lg:col-span-1">
+          <div class="bg-white rounded-2xl border border-border p-6">
+            <h3 class="text-lg font-heading font-bold text-primary mb-4 flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary">history</span>
+              최근 풀이
+            </h3>
+            <div id="recentSolves" class="space-y-3">
+              <div class="text-center py-8 text-gray-400">
+                <span class="material-symbols-outlined text-4xl mb-2">inbox</span>
+                <p class="text-sm">아직 풀이한 문제가 없습니다</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== SOLUTION TAB ========== -->
+    <div id="tab-solution" class="tab-content hidden">
+      <div id="solutionContent"></div>
+    </div>
+
+    <!-- ========== NOTEBOOK TAB ========== -->
+    <div id="tab-notebook" class="tab-content hidden">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h2 class="text-2xl font-heading font-bold text-primary">오답노트</h2>
+          <p class="text-gray-500 mt-1">풀이한 문제들을 모아두고 다시 복습하세요</p>
+        </div>
+        <button onclick="exportNotebook()" class="flex items-center gap-2 bg-secondary text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition">
+          <span class="material-symbols-outlined text-sm">download</span>
+          전체 다운로드
+        </button>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="notebookGrid">
+        <div class="col-span-full text-center py-16 text-gray-400">
+          <span class="material-symbols-outlined text-5xl mb-3">menu_book</span>
+          <p>저장된 오답노트가 없습니다</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== CONCEPTS TAB ========== -->
+    <div id="tab-concepts" class="tab-content hidden">
+      <div class="flex items-center justify-between mb-8">
+        <div>
+          <h2 class="text-2xl font-heading font-bold text-primary">개념사전</h2>
+          <p class="text-gray-500 mt-1">풀이 과정에서 필요한 개념들이 자동으로 저장됩니다</p>
+        </div>
+        <div class="flex gap-2">
+          <input type="text" id="conceptSearch" placeholder="개념 검색..." onkeyup="filterConcepts()" class="border border-border rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30">
+          <button onclick="downloadAllConcepts()" class="flex items-center gap-2 bg-secondary text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition">
+            <span class="material-symbols-outlined text-sm">download</span>
+            다운로드
+          </button>
+        </div>
+      </div>
+      <div id="conceptTags" class="flex flex-wrap gap-2 mb-6"></div>
+      <div id="conceptGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="col-span-full text-center py-16 text-gray-400">
+          <span class="material-symbols-outlined text-5xl mb-3">school</span>
+          <p>저장된 개념이 없습니다</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== DOWNLOAD TAB ========== -->
+    <div id="tab-download" class="tab-content hidden">
+      <div class="bg-gradient-to-r from-primary to-slate-700 rounded-2xl p-8 text-white mb-8">
+        <h2 class="text-2xl font-heading font-bold">다운로드 센터</h2>
+        <p class="text-white/70 mt-2">풀이 해설, 개념사전, 오답노트를PDF로 다운로드하세요</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div onclick="downloadSection('notebook')" class="bg-white rounded-2xl border border-border p-6 cursor-pointer hover:shadow-lg transition group">
+          <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-blue-200 transition">
+            <span class="material-symbols-outlined text-secondary text-2xl">book</span>
+          </div>
+          <h3 class="font-heading font-bold text-primary mb-2">오답노트 다운로드</h3>
+          <p class="text-sm text-gray-500">저장된 모든 오답노트를 정리하여 다운로드</p>
+        </div>
+        <div onclick="downloadSection('concepts')" class="bg-white rounded-2xl border border-border p-6 cursor-pointer hover:shadow-lg transition group">
+          <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-purple-200 transition">
+            <span class="material-symbols-outlined text-tertiary text-2xl">school</span>
+          </div>
+          <h3 class="font-heading font-bold text-primary mb-2">개념사전 다운로드</h3>
+          <p class="text-sm text-gray-500">학습한 개념들을 요약 정리하여 다운로드</p>
+        </div>
+        <div onclick="downloadSection('solution')" class="bg-white rounded-2xl border border-border p-6 cursor-pointer hover:shadow-lg transition group">
+          <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-green-200 transition">
+            <span class="material-symbols-outlined text-success text-2xl">description</span>
+          </div>
+          <h3 class="font-heading font-bold text-primary mb-2">최근 풀이 다운로드</h3>
+          <p class="text-sm text-gray-500">가장 최근에 풀이한 문제의 해설 다운로드</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Settings Modal -->
+  <div id="settingsModal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 fade-in">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-heading font-bold text-primary">설정</h3>
+        <button onclick="closeSettings()" class="p-1 hover:bg-gray-100 rounded-lg">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Gemini API 키</label>
+          <input type="password" id="geminiKey" placeholder="AIza..." class="w-full border border-border rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Supabase URL</label>
+          <input type="text" id="supabaseUrl" placeholder="https://xxx.supabase.co" class="w-full border border-border rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Supabase Anon Key</label>
+          <input type="password" id="supabaseKey" placeholder="eyJ..." class="w-full border border-border rounded-xl px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-secondary/30">
+        </div>
+      </div>
+      <button onclick="saveSettings()" class="mt-6 w-full bg-secondary text-white font-semibold py-2 rounded-xl hover:bg-blue-700 transition">
+        저장
+      </button>
+    </div>
+  </div>
+
+  <!-- Concept Detail Modal -->
+  <div id="conceptModal" class="hidden fixed inset-0 z-50 modal-overlay flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 fade-in max-h-[80vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="conceptModalTitle" class="text-lg font-heading font-bold text-primary"></h3>
+        <button onclick="closeConceptModal()" class="p-1 hover:bg-gray-100 rounded-lg">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div id="conceptModalBody"></div>
+    </div>
+  </div>
+
+  <script>
+    // ========== STATE ==========
+    let state = {
+      currentTab: 'home',
+      uploadedFile: null,
+      currentSolution: null,
+      recentSolves: [],
+      notebook: [],
+      concepts: [],
+      settings: {
+        geminiKey: '',
+        supabaseUrl: '',
+        supabaseKey: ''
+      }
+    };
+
+    let supabaseClient = null;
+
+    // ========== INIT ==========
+    function init() {
+      loadSettings();
+      if (state.settings.supabaseUrl && state.settings.supabaseKey) {
+        initSupabase();
+      }
+      loadFromStorage();
+      renderRecentSolves();
+      renderNotebook();
+      renderConcepts();
+      setupDragDrop();
+    }
+
+    function loadSettings() {
+      const saved = localStorage.getItem('mathsolve_settings');
+      if (saved) {
+        state.settings = JSON.parse(saved);
+        document.getElementById('geminiKey').value = state.settings.geminiKey || '';
+        document.getElementById('supabaseUrl').value = state.settings.supabaseUrl || '';
+        document.getElementById('supabaseKey').value = state.settings.supabaseKey || '';
+      }
+    }
+
+    function saveSettings() {
+      state.settings.geminiKey = document.getElementById('geminiKey').value.trim();
+      state.settings.supabaseUrl = document.getElementById('supabaseUrl').value.trim();
+      state.settings.supabaseKey = document.getElementById('supabaseKey').value.trim();
+      localStorage.setItem('mathsolve_settings', JSON.stringify(state.settings));
+      if (state.settings.supabaseUrl && state.settings.supabaseKey) {
+        initSupabase();
+      }
+      closeSettings();
+      alert('설정이 저장되었습니다.');
+    }
+
+    function initSupabase() {
+      try {
+        supabaseClient = window.supabase.createClient(
+          state.settings.supabaseUrl,
+          state.settings.supabaseKey
+        );
+        updateSyncBadge(true);
+        syncFromSupabase();
+      } catch (e) {
+        console.error('Supabase init error:', e);
+        updateSyncBadge(false);
+      }
+    }
+
+    function updateSyncBadge(connected) {
+      const badge = document.getElementById('syncBadge');
+      if (!badge) return;
+      if (connected) {
+        badge.innerHTML = '<span class="material-symbols-outlined text-sm text-success">cloud_done</span><span class="text-success">DB 연결됨</span>';
+        badge.classList.remove('bg-gray-100', 'text-gray-500');
+        badge.classList.add('bg-green-100');
+      } else {
+        badge.innerHTML = '<span class="material-symbols-outlined text-sm">cloud_off</span><span>DB 미연결</span>';
+        badge.classList.remove('bg-green-100', 'text-success');
+        badge.classList.add('bg-gray-100', 'text-gray-500');
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const existing = document.querySelector('.toast');
+      if (existing) existing.remove();
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-green-600',
+        error: 'bg-red-600',
+        warn: 'bg-amber-500',
+        info: 'bg-gray-800'
+      };
+      const icons = {
+        success: 'check_circle',
+        error: 'error',
+        warn: 'warning',
+        info: 'info'
+      };
+      toast.className = 'toast fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[100] text-white px-5 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm fade-in ' + (colors[type] || colors.info);
+      toast.innerHTML = `<span class="material-symbols-outlined text-xs">${icons[type] || icons.info}</span>${message}`;
+      document.body.appendChild(toast);
+      setTimeout(() => {
+        toast.style.transition = 'opacity 0.3s';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    function loadFromStorage() {
+      try {
+        const nb = localStorage.getItem('mathsolve_notebook');
+        const cp = localStorage.getItem('mathsolve_concepts');
+        const rs = localStorage.getItem('mathsolve_recent');
+        if (nb) state.notebook = JSON.parse(nb);
+        if (cp) state.concepts = JSON.parse(cp);
+        if (rs) state.recentSolves = JSON.parse(rs);
+      } catch(e) { console.error(e); }
+    }
+
+    function saveToStorage() {
+      localStorage.setItem('mathsolve_notebook', JSON.stringify(state.notebook));
+      localStorage.setItem('mathsolve_concepts', JSON.stringify(state.concepts));
+      localStorage.setItem('mathsolve_recent', JSON.stringify(state.recentSolves));
+    }
+
+    async function syncFromSupabase() {
+      if (!supabaseClient) return;
+      try {
+        const { data: nb, error: nbErr } = await supabaseClient.from('notebook').select('*').order('created_at', { ascending: false });
+        if (nbErr && nbErr.message?.includes('does not exist')) {
+          showToast('DB 테이블 생성이 필요합니다 - Supabase SQL Editor에서 SQL을 실행해주세요.', 'warn');
+          return;
+        }
+        if (nb && nb.length) state.notebook = nb;
+        const { data: cp } = await supabaseClient.from('concepts').select('*').order('created_at', { ascending: false });
+        if (cp && cp.length) state.concepts = cp;
+        saveToStorage();
+        renderNotebook();
+        renderConcepts();
+        renderRecentSolves();
+      } catch(e) { console.log('Supabase sync skipped:', e.message); }
+    }
+
+    // ========== NAVIGATION ==========
+    function showTab(tab) {
+      state.currentTab = tab;
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById('tab-' + tab).classList.remove('hidden');
+      document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('nav-active'));
+      document.getElementById('nav-' + tab)?.classList.add('nav-active');
+      document.querySelectorAll('.mnav-tab').forEach(el => {
+        el.classList.remove('text-secondary');
+        el.classList.add('text-gray-400');
+      });
+      const mnav = document.getElementById('mnav-' + tab);
+      if (mnav) {
+        mnav.classList.add('text-secondary');
+        mnav.classList.remove('text-gray-400');
+      }
+      if (tab === 'notebook') renderNotebook();
+      if (tab === 'concepts') renderConcepts();
+    }
+
+    // ========== FILE UPLOAD ==========
+    function setupDragDrop() {
+      const zone = document.getElementById('uploadZone');
+      ['dragenter','dragover'].forEach(e => {
+        zone.addEventListener(e, (ev) => { ev.preventDefault(); zone.classList.add('dragover'); });
+      });
+      ['dragleave','drop'].forEach(e => {
+        zone.addEventListener(e, (ev) => { ev.preventDefault(); zone.classList.remove('dragover'); });
+      });
+      zone.addEventListener('drop', (ev) => {
+        const file = ev.dataTransfer.files[0];
+        if (file) processFile(file);
+      });
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (file) processFile(file);
+    }
+
+    function processFile(file) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert('파일 크기는 10MB 이하여야 합니다.');
+        return;
+      }
+      state.uploadedFile = file;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('previewImage').src = e.target.result;
+        document.getElementById('uploadPlaceholder').classList.add('hidden');
+        document.getElementById('uploadPreview').classList.remove('hidden');
+        document.getElementById('solveBtn').disabled = false;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearUpload() {
+      state.uploadedFile = null;
+      document.getElementById('fileInput').value = '';
+      document.getElementById('uploadPlaceholder').classList.remove('hidden');
+      document.getElementById('uploadPreview').classList.add('hidden');
+      document.getElementById('solveBtn').disabled = true;
+    }
+
+    // ========== AI SOLVE ==========
+    async function solveProblem() {
+      if (!state.uploadedFile) return;
+      if (!state.settings.geminiKey) {
+        alert('설정에서 Gemini API 키를 입력해주세요.');
+        openSettings();
+        return;
+      }
+
+      const overlay = document.getElementById('scanningOverlay');
+      overlay.classList.remove('hidden');
+      document.getElementById('solveBtn').disabled = true;
+
+      try {
+        const base64 = await fileToBase64(state.uploadedFile);
+        const solution = await callGeminiAPI(base64);
+        state.currentSolution = solution;
+        
+        // Save to recent
+        const entry = {
+          id: Date.now(),
+          title: solution.title || '수학 문제',
+          subject: solution.subject || '일반',
+          thumbnail: base64.substring(0, 100),
+          solution: solution,
+          timestamp: new Date().toISOString(),
+          image: base64
+        };
+        state.recentSolves.unshift(entry);
+        if (state.recentSolves.length > 20) state.recentSolves.pop();
+        
+        // Auto save to notebook
+        saveToNotebook(entry);
+        
+        // Auto save concepts
+        if (solution.concepts && solution.concepts.length) {
+          for (const concept of solution.concepts) {
+            saveConcept(concept);
+          }
+        }
+        
+        saveToStorage();
+        renderRecentSolves();
+        renderSolution(solution, entry);
+        showTab('solution');
+      } catch (err) {
+        alert('풀이 중 오류가 발생했습니다: ' + err.message);
+      } finally {
+        overlay.classList.add('hidden');
+        document.getElementById('solveBtn').disabled = false;
+      }
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function callGeminiAPI(imageBase64) {
+      const stepByStep = document.getElementById('optStepByStep').checked;
+      const formulas = document.getElementById('optFormulas').checked;
+      const concepts = document.getElementById('optConcepts').checked;
+
+      let prompt = `당신은 대한민국 최고의 수학 전문가입니다. 아래 이미지의 수학 문제를 분석하고 풀이해주세요.
+
+응답은 반드시 다음 JSON 형식으로 작성해주세요:
+{
+  "title": "문제 제목 (간결하게)",
+  "subject": "수학 분야 (미적분, 대수, 기하, 삼각함수, 벡터, 확률 등)",
+  "unit": "세부 단원명",
+  "recognizedText": "인식된 문제 텍스트 (LaTeX 사용)",
+  "answer": "최종 답",
+  "confidence": 99.8,`;
+
+      if (stepByStep) {
+        prompt += `
+  "steps": [
+    {
+      "stepNumber": 1,
+      "title": "단계 제목",
+      "explanation": "이 단계의 설명",
+      "formula": "사용된 공식 (LaTeX)",
+      "result": "이 단계의 결과"
+    }
+  ],`;
+      }
+
+      if (formulas) {
+        prompt += `
+  "formulas": [
+    {
+      "name": "공식 이름",
+      "formula": "공식 내용 (LaTeX)",
+      "description": "공식 설명"
+    }
+  ],`;
+      }
+
+      if (concepts) {
+        prompt += `
+  "concepts": [
+    {
+      "name": "개념 이름",
+      "category": "카테고리 (예: 미적분, 대수학, 기하학)",
+      "definition": "개념 정의",
+      "keyPoint": "핵심 포인트",
+      "relatedFormulas": ["관련 공식 LaTeX1", "관련 공식 LaTeX2"],
+      "difficulty": "상/중/하"
+    }
+  ],`;
+      }
+
+      prompt += `
+  "summary": "풀이 요약 (2-3문장)",
+  "difficulty": "상/중/하",
+  "tips": "풀이 팁이나 주의사항"
+}
+
+모든 수학 기호는 LaTeX 형식으로 작성해주세요. JSON만 응답하고 다른 텍스트는 포함하지 마세요.`;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${state.settings.geminiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: prompt },
+                { inline_data: { mime_type: state.uploadedFile.type || 'image/jpeg', data: imageBase64 } }
+              ]
+            }],
+            generationConfig: {
+              temperature: 0.2,
+              maxOutputTokens: 8192,
+            }
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || 'API 호출 실패');
+      }
+
+      const data = await response.json();
+      let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      // Extract JSON from response
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('AI 응답을 파싱할 수 없습니다.');
+      
+      return JSON.parse(jsonMatch[0]);
+    }
+
+    // ========== RENDER SOLUTION ==========
+    function renderSolution(solution, entry) {
+      const container = document.getElementById('solutionContent');
+      const stepsHtml = solution.steps ? solution.steps.map((step, i) => `
+        <div class="relative step-line pl-10 pb-6">
+          <div class="absolute left-0 top-0 w-8 h-8 bg-secondary text-white rounded-full flex items-center justify-center text-sm font-bold">${step.stepNumber || i+1}</div>
+          <div class="bg-white rounded-xl border border-border p-4">
+            <h4 class="font-heading font-bold text-primary mb-2">${step.title}</h4>
+            <p class="text-gray-600 text-sm mb-3">${step.explanation}</p>
+            ${step.formula ? `<div class="bg-surface rounded-lg p-3 mb-2"><div class="katex-render" data-formula="${escapeAttr(step.formula)}"></div></div>` : ''}
+            ${step.result ? `<div class="text-secondary font-medium text-sm">→ ${step.result}</div>` : ''}
+          </div>
+        </div>
+      `).join('') : '';
+
+      const formulasHtml = solution.formulas ? solution.formulas.map(f => `
+        <div class="bg-white rounded-xl border border-border p-4">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="material-symbols-outlined text-tertiary text-sm">functions</span>
+            <span class="font-heading font-bold text-primary text-sm">${f.name}</span>
+          </div>
+          <div class="bg-surface rounded-lg p-3 mb-2 text-center">
+            <div class="katex-render" data-formula="${escapeAttr(f.formula)}"></div>
+          </div>
+          <p class="text-xs text-gray-500">${f.description}</p>
+        </div>
+      `).join('') : '';
+
+      container.innerHTML = `
+        <button onclick="showTab('home')" class="flex items-center gap-1 text-secondary hover:text-blue-700 mb-4 text-sm font-medium">
+          <span class="material-symbols-outlined text-sm">arrow_back</span>돌아가기
+        </button>
+        
+        <div class="flex flex-wrap items-center gap-3 mb-6">
+          <span class="bg-secondary/10 text-secondary px-3 py-1 rounded-lg text-sm font-medium">${solution.subject || '수학'}</span>
+          <span class="bg-gray-100 text-gray-600 px-3 py-1 rounded-lg text-sm">${solution.unit || ''}</span>
+          <span class="bg-green-100 text-success px-3 py-1 rounded-lg text-sm font-medium flex items-center gap-1">
+            <span class="material-symbols-outlined text-sm">verified</span>AI 검증 완료
+          </span>
+          <span class="text-gray-400 text-sm ml-auto">신뢰도: ${solution.confidence || 99}%</span>
+        </div>
+
+        <!-- Recognized Problem -->
+        <div class="bg-white rounded-2xl border border-border p-6 mb-6">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-secondary">visibility</span>
+            <h3 class="font-heading font-bold text-primary">인식된 문제</h3>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-surface rounded-xl p-4">
+              <div class="katex-render text-lg" data-formula="${escapeAttr(solution.recognizedText || '')}"></div>
+            </div>
+            ${entry?.image ? `<div class="rounded-xl overflow-hidden border border-border"><img src="${entry.image}" class="w-full h-48 object-contain" alt="원본 문제"></div>` : ''}
+          </div>
+          <div class="mt-4 flex items-center gap-2">
+            <span class="text-sm text-gray-500">최종 답:</span>
+            <span class="bg-success/10 text-success px-3 py-1 rounded-lg font-bold">${solution.answer || ''}</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Steps -->
+          <div class="lg:col-span-2">
+            <h3 class="font-heading font-bold text-primary mb-4 flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary">route</span>
+              단계별 풀이
+            </h3>
+            <div class="ml-2">${stepsHtml}</div>
+          </div>
+
+          <!-- Formulas Sidebar -->
+          <div class="lg:col-span-1">
+            <h3 class="font-heading font-bold text-primary mb-4 flex items-center gap-2">
+              <span class="material-symbols-outlined text-tertiary">functions</span>
+              핵심 공식
+            </h3>
+            <div class="space-y-3">${formulasHtml}</div>
+          </div>
+        </div>
+
+        <!-- Concepts -->
+        ${solution.concepts ? `
+        <div class="mt-8">
+          <h3 class="font-heading font-bold text-primary mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-success">school</span>
+            관련 개념
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${solution.concepts.map(c => `
+              <div class="bg-white rounded-xl border border-border p-4 hover:shadow-md transition">
+                <div class="flex items-center gap-2 mb-2">
+                  <span class="bg-tertiary/10 text-tertiary px-2 py-0.5 rounded text-xs font-medium">${c.category}</span>
+                  <span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded text-xs">${c.difficulty}</span>
+                </div>
+                <h4 class="font-heading font-bold text-primary text-sm mb-1">${c.name}</h4>
+                <p class="text-xs text-gray-600 mb-2">${c.definition}</p>
+                <div class="bg-surface rounded-lg p-2">
+                  <div class="katex-render text-sm" data-formula="${escapeAttr(c.relatedFormulas?.[0] || '')}"></div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Summary & Tips -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-blue-50 rounded-xl border border-blue-200 p-4">
+            <h4 class="font-heading font-bold text-secondary text-sm mb-2 flex items-center gap-1">
+              <span class="material-symbols-outlined text-sm">lightbulb</span>풀이 요약
+            </h4>
+            <p class="text-sm text-gray-700">${solution.summary || ''}</p>
+          </div>
+          <div class="bg-amber-50 rounded-xl border border-amber-200 p-4">
+            <h4 class="font-heading font-bold text-amber-700 text-sm mb-2 flex items-center gap-1">
+              <span class="material-symbols-outlined text-sm">tips_and_updates</span>풀이 팁
+            </h4>
+            <p class="text-sm text-gray-700">${solution.tips || ''}</p>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-6 flex flex-wrap gap-3">
+          <button onclick="downloadSolution()" class="flex items-center gap-2 bg-secondary text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition text-sm">
+            <span class="material-symbols-outlined text-sm">download</span>풀이 다운로드
+          </button>
+          <button onclick="saveToNotebookCurrent()" class="flex items-center gap-2 bg-white border border-border text-primary px-4 py-2 rounded-xl hover:bg-gray-50 transition text-sm">
+            <span class="material-symbols-outlined text-sm">bookmark_add</span>오답노트에 저장
+          </button>
+        </div>
+      `;
+
+      // Render KaTeX
+      setTimeout(() => renderKaTeX(), 100);
+    }
+
+    function escapeAttr(str) {
+      return (str || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function renderKaTeX() {
+      document.querySelectorAll('.katex-render').forEach(el => {
+        const formula = el.getAttribute('data-formula');
+        if (!formula) return;
+        try {
+          katex.render(formula, el, { throwOnError: false, displayMode: true });
+        } catch(e) {
+          el.textContent = formula;
+        }
+      });
+    }
+
+    // ========== NOTEBOOK ==========
+    function saveToNotebook(entry) {
+      const exists = state.notebook.find(n => n.id === entry.id);
+      if (!exists) {
+        state.notebook.unshift(entry);
+        if (state.notebook.length > 100) state.notebook.pop();
+        saveToStorage();
+        syncToSupabase('notebook', entry);
+      }
+    }
+
+    function saveToNotebookCurrent() {
+      if (!state.currentSolution) return;
+      const entry = {
+        id: Date.now(),
+        title: state.currentSolution.title || '수학 문제',
+        subject: state.currentSolution.subject || '일반',
+        solution: state.currentSolution,
+        timestamp: new Date().toISOString(),
+        image: state.uploadedFile ? '' : ''
+      };
+      saveToNotebook(entry);
+      alert('오답노트에 저장되었습니다!');
+    }
+
+    function renderNotebook() {
+      const grid = document.getElementById('notebookGrid');
+      if (!state.notebook.length) {
+        grid.innerHTML = `<div class="col-span-full text-center py-16 text-gray-400">
+          <span class="material-symbols-outlined text-5xl mb-3">menu_book</span>
+          <p>저장된 오답노트가 없습니다</p>
+        </div>`;
+        return;
+      }
+      grid.innerHTML = state.notebook.map(item => `
+        <div class="bg-white rounded-xl border border-border p-4 hover:shadow-lg transition cursor-pointer group" onclick="viewNotebookItem('${item.id}')">
+          <div class="flex items-start justify-between mb-3">
+            <span class="bg-secondary/10 text-secondary px-2 py-0.5 rounded text-xs font-medium">${item.subject}</span>
+            <button onclick="event.stopPropagation(); deleteNotebookItem('${item.id}')" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded transition">
+              <span class="material-symbols-outlined text-sm text-red-400">delete</span>
+            </button>
+          </div>
+          <h4 class="font-heading font-bold text-primary text-sm mb-2 truncate">${item.title}</h4>
+          <div class="bg-surface rounded-lg p-2 mb-3">
+            <div class="katex-render text-xs" data-formula="${escapeAttr(item.solution?.recognizedText || item.solution?.answer || '')}"></div>
+          </div>
+          <div class="flex items-center justify-between text-xs text-gray-400">
+            <span>${formatDate(item.timestamp)}</span>
+            <span class="text-success font-medium">${item.solution?.answer || ''}</span>
+          </div>
+        </div>
+      `).join('');
+      setTimeout(() => renderKaTeX(), 100);
+    }
+
+    function viewNotebookItem(id) {
+      const item = state.notebook.find(n => String(n.id) === String(id));
+      if (item && item.solution) {
+        state.currentSolution = item.solution;
+        renderSolution(item.solution, item);
+        showTab('solution');
+      }
+    }
+
+    function deleteNotebookItem(id) {
+      if (!confirm('이 문제를 오답노트에서 삭제하시겠습니까?')) return;
+      state.notebook = state.notebook.filter(n => String(n.id) !== String(id));
+      saveToStorage();
+      renderNotebook();
+    }
+
+    function exportNotebook() {
+      if (!state.notebook.length) { alert('저장된 오답노트가 없습니다.'); return; }
+      let md = '# 📕 오답노트 - MathSolve AI\n\n';
+      md += `생성일: ${new Date().toLocaleDateString('ko-KR')}\n\n---\n\n`;
+      state.notebook.forEach((item, i) => {
+        md += `## ${i+1}. ${item.title}\n\n`;
+        md += `- **분야**: ${item.subject}\n`;
+        md += `- **풀이일**: ${formatDate(item.timestamp)}\n\n`;
+        if (item.solution?.recognizedText) md += `### 문제\n$$${item.solution.recognizedText}$$\n\n`;
+        if (item.solution?.answer) md += `### 답\n$$${item.solution.answer}$$\n\n`;
+        if (item.solution?.steps) {
+          md += `### 풀이 과정\n\n`;
+          item.solution.steps.forEach(s => {
+            md += `**${s.stepNumber}. ${s.title}**\n${s.explanation}\n`;
+            if (s.formula) md += `$$${s.formula}$$\n`;
+            md += '\n';
+          });
+        }
+        if (item.solution?.summary) md += `### 요약\n${item.solution.summary}\n\n`;
+        md += '---\n\n';
+      });
+      downloadFile(md, '오답노트.md', 'text/markdown');
+    }
+
+    // ========== CONCEPTS ==========
+    function saveConcept(concept) {
+      const key = concept.name.toLowerCase();
+      const exists = state.concepts.find(c => c.name.toLowerCase() === key);
+      if (!exists) {
+        const entry = { ...concept, id: Date.now() + Math.random(), createdAt: new Date().toISOString() };
+        state.concepts.push(entry);
+        saveToStorage();
+        syncToSupabase('concepts', entry);
+      }
+    }
+
+    function renderConcepts() {
+      const grid = document.getElementById('conceptGrid');
+      const tags = document.getElementById('conceptTags');
+      const categories = [...new Set(state.concepts.map(c => c.category))];
+      
+      tags.innerHTML = categories.map(cat => `
+        <button onclick="filterByCategory('${cat}')" class="bg-tertiary/10 text-tertiary px-3 py-1 rounded-full text-xs font-medium hover:bg-tertiary/20 transition">${cat}</button>
+      `).join('');
+
+      if (!state.concepts.length) {
+        grid.innerHTML = `<div class="col-span-full text-center py-16 text-gray-400">
+          <span class="material-symbols-outlined text-5xl mb-3">school</span>
+          <p>저장된 개념이 없습니다</p>
+          <p class="text-sm mt-1">문제를 풀면 관련 개념이 자동으로 저장됩니다</p>
+        </div>`;
+        return;
+      }
+      grid.innerHTML = state.concepts.map(c => `
+        <div onclick="openConceptDetail(${JSON.stringify(c).replace(/"/g, '&quot;')})" class="bg-white rounded-xl border border-border p-4 hover:shadow-lg transition cursor-pointer">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="bg-tertiary/10 text-tertiary px-2 py-0.5 rounded text-xs font-medium">${c.category}</span>
+            <span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded text-xs">${c.difficulty}</span>
+          </div>
+          <h4 class="font-heading font-bold text-primary mb-2">${c.name}</h4>
+          <p class="text-sm text-gray-600 mb-3 line-clamp-2">${c.definition}</p>
+          <div class="bg-surface rounded-lg p-2">
+            <div class="katex-render text-sm" data-formula="${escapeAttr(c.relatedFormulas?.[0] || '')}"></div>
+          </div>
+        </div>
+      `).join('');
+      setTimeout(() => renderKaTeX(), 100);
+    }
+
+    function openConceptDetail(concept) {
+      document.getElementById('conceptModalTitle').textContent = concept.name;
+      document.getElementById('conceptModalBody').innerHTML = `
+        <div class="space-y-4">
+          <div class="flex gap-2">
+            <span class="bg-tertiary/10 text-tertiary px-3 py-1 rounded-lg text-sm font-medium">${concept.category}</span>
+            <span class="bg-gray-100 text-gray-500 px-3 py-1 rounded-lg text-sm">${concept.difficulty}</span>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-gray-700 mb-1">정의</h4>
+            <p class="text-sm text-gray-600">${concept.definition}</p>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold text-gray-700 mb-1">핵심 포인트</h4>
+            <p class="text-sm text-gray-600">${concept.keyPoint}</p>
+          </div>
+          ${concept.relatedFormulas?.length ? `
+          <div>
+            <h4 class="text-sm font-bold text-gray-700 mb-2">관련 공식</h4>
+            ${concept.relatedFormulas.map(f => `
+              <div class="bg-surface rounded-lg p-3 mb-2">
+                <div class="katex-render" data-formula="${escapeAttr(f)}"></div>
+              </div>
+            `).join('')}
+          </div>
+          ` : ''}
+        </div>
+      `;
+      document.getElementById('conceptModal').classList.remove('hidden');
+      setTimeout(() => renderKaTeX(), 100);
+    }
+
+    function closeConceptModal() {
+      document.getElementById('conceptModal').classList.add('hidden');
+    }
+
+    function filterConcepts() {
+      const query = document.getElementById('conceptSearch').value.toLowerCase();
+      document.querySelectorAll('#conceptGrid > div').forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(query) ? '' : 'none';
+      });
+    }
+
+    function filterByCategory(cat) {
+      document.getElementById('conceptSearch').value = cat;
+      filterConcepts();
+    }
+
+    function downloadAllConcepts() {
+      if (!state.concepts.length) { alert('저장된 개념이 없습니다.'); return; }
+      let md = '# 📘 개념사전 - MathSolve AI\n\n';
+      md += `생성일: ${new Date().toLocaleDateString('ko-KR')}\n\n---\n\n`;
+      const grouped = {};
+      state.concepts.forEach(c => {
+        if (!grouped[c.category]) grouped[c.category] = [];
+        grouped[c.category].push(c);
+      });
+      Object.entries(grouped).forEach(([cat, items]) => {
+        md += `## ${cat}\n\n`;
+        items.forEach(c => {
+          md += `### ${c.name} (${c.difficulty})\n\n`;
+          md += `**정의:** ${c.definition}\n\n`;
+          md += `**핵심 포인트:** ${c.keyPoint}\n\n`;
+          if (c.relatedFormulas?.length) {
+            md += `**관련 공식:**\n`;
+            c.relatedFormulas.forEach(f => { md += `$$${f}$$\n`; });
+          }
+          md += '\n---\n\n';
+        });
+      });
+      downloadFile(md, '개념사전.md', 'text/markdown');
+    }
+
+    // ========== RECENT SOLVES ==========
+    function renderRecentSolves() {
+      const container = document.getElementById('recentSolves');
+      if (!state.recentSolves.length) {
+        container.innerHTML = `<div class="text-center py-8 text-gray-400">
+          <span class="material-symbols-outlined text-4xl mb-2">inbox</span>
+          <p class="text-sm">아직 풀이한 문제가 없습니다</p>
+        </div>`;
+        return;
+      }
+      container.innerHTML = state.recentSolves.slice(0, 8).map(item => `
+        <div onclick="viewNotebookItem('${item.id}')" class="flex items-center gap-3 p-3 rounded-xl hover:bg-surface cursor-pointer transition">
+          <div class="w-10 h-10 bg-secondary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-secondary text-lg">calculate</span>
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-primary truncate">${item.title}</p>
+            <p class="text-xs text-gray-400">${item.subject} · ${formatDate(item.timestamp)}</p>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ========== DOWNLOAD ==========
+    function downloadSolution() {
+      if (!state.currentSolution) return;
+      const s = state.currentSolution;
+      let md = `# ${s.title || '수학 문제 풀이'}\n\n`;
+      md += `**분야:** ${s.subject || '-'} | **단원:** ${s.unit || '-'}\n\n`;
+      md += `---\n\n`;
+      if (s.recognizedText) md += `## 문제\n$$${s.recognizedText}$$\n\n`;
+      if (s.answer) md += `## 답\n$$${s.answer}$$\n\n`;
+      if (s.steps) {
+        md += `## 풀이 과정\n\n`;
+        s.steps.forEach(st => {
+          md += `### ${st.stepNumber}. ${st.title}\n${st.explanation}\n\n`;
+          if (st.formula) md += `$$${st.formula}$$\n\n`;
+        });
+      }
+      if (s.formulas) {
+        md += `## 핵심 공식\n\n`;
+        s.formulas.forEach(f => { md += `### ${f.name}\n$$${f.formula}$$\n${f.description}\n\n`; });
+      }
+      if (s.concepts) {
+        md += `## 관련 개념\n\n`;
+        s.concepts.forEach(c => {
+          md += `### ${c.name} (${c.category})\n${c.definition}\n\n**핵심:** ${c.keyPoint}\n\n`;
+        });
+      }
+      if (s.summary) md += `## 요약\n${s.summary}\n\n`;
+      if (s.tips) md += `## 팁\n${s.tips}\n\n`;
+      downloadFile(md, `${s.title || '풀이'}.md`, 'text/markdown');
+    }
+
+    function downloadSection(type) {
+      if (type === 'notebook') exportNotebook();
+      else if (type === 'concepts') downloadAllConcepts();
+      else if (type === 'solution') downloadSolution();
+    }
+
+    function downloadFile(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ========== SUPABASE SYNC ==========
+    async function syncToSupabase(table, entry) {
+      if (!supabaseClient) {
+        showToast('Supabase 연결 필요 - 설정에서 URL과 Key를 입력해주세요.', 'warn');
+        return;
+      }
+      try {
+        const { error } = await supabaseClient.from(table).insert({
+          id: entry.id,
+          title: entry.title || entry.name,
+          subject: entry.subject || entry.category,
+          data: entry.solution || entry,
+          image: entry.image || null,
+          created_at: entry.timestamp || entry.createdAt || new Date().toISOString()
+        });
+        if (error) {
+          if (error.message && error.message.includes('does not exist')) {
+            showToast(`DB 테이블 '${table}'이 없습니다 - Supabase SQL Editor에서 테이블을 생성해주세요.`, 'error');
+          } else {
+            showToast('DB 저장 실패: ' + (error.message || '알 수 없는 오류'), 'error');
+          }
+          return;
+        }
+        showToast(table === 'notebook' ? '오답노트가 DB에 저장되었습니다.' : '개념이 DB에 저장되었습니다.', 'success');
+      } catch(e) {
+        showToast('DB 저장 오류: ' + e.message, 'error');
+      }
+    }
+
+    // ========== SETTINGS MODAL ==========
+    function openSettings() {
+      document.getElementById('settingsModal').classList.remove('hidden');
+    }
+    function closeSettings() {
+      document.getElementById('settingsModal').classList.add('hidden');
+    }
+
+    // ========== UTILS ==========
+    function formatDate(iso) {
+      if (!iso) return '';
+      const d = new Date(iso);
+      return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    // ========== INIT ==========
+    init();
+  </script>
+</body>
+</html>
